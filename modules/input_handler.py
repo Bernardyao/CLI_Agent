@@ -1,26 +1,37 @@
-# input_handler.py - 稳定版本
+# input_handler.py - 完整修复版本
 import sys
 import os
 from typing import Optional
 
 def get_user_input(prompt: str = "ag> ") -> Optional[str]:
-    """获取用户输入 - 稳定版本"""
+    """获取用户输入 - 完整修复版本"""
     try:
         import tty
         import termios
         
+        # 检查stdin是否可用
+        if not sys.stdin.isatty():
+            # 如果stdin不是终端,使用input降级
+            return input(prompt)
+        
         # 保存终端设置
         old_settings = termios.tcgetattr(sys.stdin)
-        tty.setcbreak(sys.stdin)
-        
-        buffer = []
-        cursor_pos = 0
-        print(prompt, end="", flush=True)
         
         try:
+            tty.setcbreak(sys.stdin)
+            
+            buffer = []
+            cursor_pos = 0
+            print(prompt, end="", flush=True)
+            
             while True:
-                char = sys.stdin.read(1)
-                ascii_val = ord(char)
+                try:
+                    char = sys.stdin.read(1)
+                    if not char:  # EOF
+                        raise EOFError
+                    ascii_val = ord(char)
+                except:
+                    raise EOFError
                 
                 # 回车键
                 if char in ('\r', '\n'):
@@ -36,23 +47,32 @@ def get_user_input(prompt: str = "ag> ") -> Optional[str]:
                         
                 # 方向键
                 elif char == '\x1b':
-                    seq1 = sys.stdin.read(1)
-                    seq2 = sys.stdin.read(1)
-                    
-                    if seq1 == '[' and seq2 == 'C':  # 右箭头
-                        if cursor_pos < len(buffer):
-                            cursor_pos += 1
-                            print('\x1b[1C', end='', flush=True)
-                    elif seq1 == '[' and seq2 == 'D':  # 左箭头
-                        if cursor_pos > 0:
-                            cursor_pos -= 1
-                            print('\x1b[1D', end='', flush=True)
-                    # 忽略其他方向键
+                    try:
+                        seq1 = sys.stdin.read(1)
+                        seq2 = sys.stdin.read(1)
+                        
+                        if seq1 == '[' and seq2 == 'C':  # 右箭头
+                            if cursor_pos < len(buffer):
+                                cursor_pos += 1
+                                print('\x1b[1C', end='', flush=True)
+                        elif seq1 == '[' and seq2 == 'D':  # 左箭头
+                            if cursor_pos > 0:
+                                cursor_pos -= 1
+                                print('\x1b[1D', end='', flush=True)
+                    except:
+                        pass
                     
                 # Ctrl+C
                 elif ascii_val == 3:
                     print("^C")
-                    return None
+                    raise KeyboardInterrupt
+                    
+                # Ctrl+D - 处理EOF
+                elif ascii_val == 4:
+                    if not buffer:  # 空行时Ctrl+D才退出
+                        print()
+                        raise EOFError
+                    # 否则忽略
                     
                 # 普通字符
                 elif 32 <= ascii_val <= 126:
@@ -65,22 +85,30 @@ def get_user_input(prompt: str = "ag> ") -> Optional[str]:
                         cursor_pos += 1
                         # 重新显示当前行
                         current_line = ''.join(buffer)
-                        print('\x1b[K' + prompt + current_line, end="")
+                        print('\r\x1b[K' + prompt + current_line, end="", flush=True)
                         # 移动光标到正确位置
                         move_cursor_to(len(prompt) + cursor_pos)
                         
         finally:
-            # 恢复终端设置
-            termios.tcsetattr(sys.stdin, termios.TCSAFLUSH, old_settings)
-            
-        return "".join(buffer) if buffer else None
+            # 确保终端设置一定会恢复
+            try:
+                termios.tcsetattr(sys.stdin, termios.TCSAFLUSH, old_settings)
+            except:
+                pass
         
-    except Exception:
-        # 降级方案
+        return "".join(buffer) if buffer else ""
+        
+    except (KeyboardInterrupt, EOFError):
+        # 重新抛出,让上层处理
+        raise
+    except Exception as e:
+        # 降级方案:使用标准input
         try:
             return input(prompt)
         except (KeyboardInterrupt, EOFError):
-            return None
+            raise
+        except Exception:
+            return ""
 
 def move_cursor_to(col):
     """移动光标到指定列"""
@@ -88,15 +116,33 @@ def move_cursor_to(col):
     sys.stdout.flush()
 
 def get_piped_input() -> Optional[str]:
-    """获取管道输入"""
+    """获取管道输入 - 完全重写"""
     try:
+        # 检查是否有管道输入
         if not sys.stdin.isatty():
             content = sys.stdin.read().strip()
+            
+            # ✅ 关键修复:重新打开stdin到终端
+            sys.stdin.close()
+            sys.stdin = open('/dev/tty', 'r')
+            
             return content if content else None
-    except Exception:
-        pass
+    except Exception as e:
+        # 如果无法重新打开tty,尝试其他方式
+        try:
+            # 在某些环境下,尝试重新绑定到标准输入
+            import io
+            sys.stdin = io.TextIOWrapper(
+                os.fdopen(0, 'rb', buffering=0), 
+                encoding='utf-8',
+                line_buffering=True
+            )
+        except:
+            pass
     return None
 
 def save_history():
     """保存历史记录"""
     pass
+
+
