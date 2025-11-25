@@ -1,30 +1,24 @@
-# modules/utils.py
-from rich.console import Console
-from rich.markdown import Markdown
+# modules/utils.py - 最简化版本（无多余换行）
+import sys
 
-console = Console()
-
-
-def pretty_print(text: str):
-    """
-    智能输出渲染 - 修复版
-    """
-    if not isinstance(text, str):
-        text = str(text)
+def pretty_print(text):
+    """最简单的文本输出，不添加多余换行"""
+    if text is None:
+        return
     
-    # ✅ 修复:判断是否为Markdown格式
-    # 如果文本包含Markdown标记,使用Markdown渲染
-    # 否则直接打印
-    markdown_indicators = ['**', '#', '`', '[', '](', '- ', '* ', '> ']
-    is_markdown = any(indicator in text for indicator in markdown_indicators)
+    # 确保输出为字符串
+    text = str(text)
     
-    if is_markdown:
-        try:
-            console.print(Markdown(text))
-        except:
-            # 如果Markdown渲染失败,降级为普通打印
-            console.print(text)
-    else:
-        # 普通文本直接打印
-        console.print(text)
+    # 直接写入，不添加换行
+    sys.stdout.write(text)
+    sys.stdout.flush()
 
+def safe_pretty_print(text):
+    """安全版本：确保文本能显示"""
+    if text is None:
+        return
+    pretty_print(text)
+
+# 兼容性函数别名
+direct_pretty_print = pretty_print
+enhanced_direct_pretty_print = safe_pretty_print
