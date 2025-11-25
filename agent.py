@@ -15,7 +15,7 @@ def main() -> None:
         }
     ]
 
-    # First, check for piped input. If present, handle one-shot then continue in interactive mode.
+    # First, check for piped input. If present, handle one-shot and exit (script-friendly).
     piped_content = get_piped_input()
     if piped_content:
         user_message = {"role": "user", "content": piped_content}
@@ -36,6 +36,35 @@ def main() -> None:
 
         except Exception as e:
             print(f"Error in piped mode: {e}")
+
+        print("Bye!")
+        return
+
+    # If there is no piped input but we have CLI arguments, treat them
+    # as an initial question before entering interactive mode.
+    if len(sys.argv) > 1:
+        initial_question = " ".join(sys.argv[1:]).strip()
+        if initial_question:
+            user_message = {"role": "user", "content": initial_question}
+            messages.append(user_message)
+
+            try:
+                print("💭 Thinking...")
+
+                full_response = ""
+                for chunk in chat_stream(messages):
+                    if chunk:
+                        safe_pretty_print(chunk)
+                        full_response += chunk
+
+                print()
+
+                messages.append({"role": "assistant", "content": full_response})
+
+            except Exception as e:
+                print(f"\nError: {e}\n")
+                if messages and messages[-1]["role"] == "user":
+                    messages.pop()
 
     # Interactive conversation loop; exit only on explicit command or Ctrl+C/EOF
     while True:
