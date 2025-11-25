@@ -13,7 +13,7 @@ def main():
         }
     ]
 
-    # First, check for piped input. If present, handle one-shot and exit.
+    # First, check for piped input. If present, handle one-shot then continue in interactive mode.
     piped_content = get_piped_input()
     if piped_content:
         user_message = {"role": "user", "content": piped_content}
@@ -34,9 +34,6 @@ def main():
 
         except Exception as e:
             print(f"❌ Error in piped mode: {e}")
-
-        print("Bye!")
-        return
 
     # Interactive conversation loop; exit only on explicit command or Ctrl+C/EOF
     while True:
