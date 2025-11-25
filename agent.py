@@ -1,9 +1,11 @@
 # agent.py - 简化版本
+import sys
 from modules.input_handler import get_user_input, get_piped_input
 from modules.llm_client import chat_stream
 from modules.utils import safe_pretty_print
-import sys
-def main():
+
+
+def main() -> None:
     print("★ Polar Agent CLI")
 
     messages = [
@@ -33,7 +35,7 @@ def main():
             messages.append({"role": "assistant", "content": full_response})
 
         except Exception as e:
-            print(f"❌ Error in piped mode: {e}")
+            print(f"Error in piped mode: {e}")
 
     # Interactive conversation loop; exit only on explicit command or Ctrl+C/EOF
     while True:
@@ -77,18 +79,18 @@ def main():
                 print(f"File '{path}' is empty.")
                 continue
 
-            file_message = {
+            user_message = {
                 "role": "user",
                 "content": (
                     "Please analyze the following file. "
-                    "The file path is: "
-                    f"{path}\n\n"  # include path context
+                    f"The file path is: {path}\n\n"
                     "```text\n" + content + "\n```"
                 ),
             }
-            messages.append(file_message)
         else:
-            messages.append({"role": "user", "content": user_input})
+            user_message = {"role": "user", "content": user_input}
+
+        messages.append(user_message)
 
         try:
             print("💭 Thinking...")
@@ -113,6 +115,7 @@ def main():
             if messages and messages[-1]["role"] == "user":
                 messages.pop()
             continue
+
 
 if __name__ == "__main__":
     try:
